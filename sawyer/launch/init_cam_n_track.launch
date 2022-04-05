@@ -1,0 +1,71 @@
+<launch>
+
+    <arg name="image_viewer" default ="False" />
+    <arg name="rviz" default ="True" />
+    <!-- <arg name="ik_move" default ="True" /> -->
+    <arg name="plot_gui" default ="True" />
+
+    <!-- This node launches the usb camera at video node 2 -->
+    <node name="usb_cam1" pkg="usb_cam" type="usb_cam_node" output="screen" >
+        <param name="video_device" value="/dev/video2" />
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_frame_id" value="usb_cam1" />
+        <param name="io_method" value="mmap"/>
+    </node>
+
+
+    <!-- This here publishes the image  -->
+    <node name="image_view1" pkg="image_view" type="image_view" respawn="false" output="screen" if="$(arg image_viewer)">
+        <remap from="image" to="/usb_cam1/image_raw"/>
+        <param name="autosize" value="true" />
+    </node>
+
+
+    <!-- Here we initialize the april tag finder  -->
+
+    <arg name="launch_prefix" default="" />
+    <arg name="node_namespace1" default="apriltag_ros_continuous_node1" />
+    <arg name="camera_name1" default="/usb_cam1" />
+    <arg name="camera_frame1" default="camera1" />
+
+    <arg name="image_topic" default="/image_raw" />
+
+    <!-- Set parameters for finding the config files -->
+    <rosparam command="load" file="$(find sawyer)/config/settings.yaml" ns="$(arg node_namespace1)" />
+    <rosparam command="load" file="$(find sawyer)/config/block_tags1.yaml" ns="$(arg node_namespace1)" />
+
+    <!-- Here we run the april tag node  -->
+    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="$(arg node_namespace1)"
+                clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
+        <!-- Remap topics from those used in code to those on the ROS network -->
+        <remap from="image_rect" to="$(arg camera_name1)/$(arg image_topic)" />
+        <remap from="camera_info" to="$(arg camera_name1)/camera_info" />
+        <remap from="tag_detections_image" to="tag_detections_image1"/>
+        <param name="camera_frame" type="str" value="$(arg camera_frame1)" />
+        <param name="publish_tag_detections_image" type="bool" value="true" />
+    </node>
+
+    <!-- Load ik solver -->
+    <!-- <node pkg="sawyer" name="ik_move_velocity" type="ik_move_velocity" output="screen" if="$(arg ik_move)"/> -->
+
+    <!-- This here opens rviz  -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find sawyer)/config/april_tags.rviz" if="$(arg rviz)" />
+
+    <!-- rqt_plot allows you to see the relative_move commands -->
+    <node name = "rqt_plot1" pkg="rqt_plot" type="rqt_plot" args="/test/relative_move" if="$(arg plot_gui)"/>
+
+    <!-- rqt_plot allows you to see the relative_move commands -->
+    <node name = "rqt_plot2" pkg="rqt_plot" type="rqt_plot" args="/test/reward" if="$(arg plot_gui)"/>
+
+
+    <!-- testing -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="cam_to_world" args="2 0 0 0.5 -0.5 -0.5 0.5 /world /camera1 1" /> -->
+    <node pkg="tf" type="static_transform_publisher" name="ee_transform" args="-0.05 0 0 0 0 0 /ee_temp /ee 200" />
+    <!-- static_transform_publisher x y z yaw pitch roll frame_id child_frame_id period_in_ms (100ms / 10hz is a good number)   -->
+
+    <!-- april tag repeater for when last tag is "old" -->
+    <node pkg="sawyer" name="april_tag_repeater" type="april_tags_repeater" output="screen"/>
+
+</launch>

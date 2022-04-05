@@ -80,9 +80,13 @@ class go_to_pose(object):
         self.home_orientation_rpy = np.asarray(transformations.euler_from_quaternion(home_orientation))
         self.reset_arm = False
 
+        # note: this is the list of positions from /robot/joint_states except the first and last elements (saywer doesn't have head_pan or torso_t0)
         # home_pose = [-0.2, -0.6, 0.0, 1.9, 0.0, 0.3, 1.571]; # straight, reacher
         # home_pose = [-0.24649609375, -0.5411318359375, -0.3039619140625, 1.901158203125, 0.8013974609375, 0.36883203125, -0.1368642578125] # diagonal, reacher
-        home_pose = [0.4321650390625, -0.1204091796875, -1.06283984375, 1.6995654296875, 1.5470302734375, 1.049638671875, -0.458474609375]
+        # home_pose = [0.4321650390625, -0.1204091796875, -1.06283984375, 1.6995654296875, 1.5470302734375, 1.049638671875, -0.458474609375] # conference paper
+        # home_pose = [-0.192216796875, 0.3485498046875, -1.075279296875, 1.0831484375, 1.58066796875, 0.951349609375, -0.4580625]
+        home_pose = [ -1.741544921875, 0.5551318359375, -1.2811669921875, 1.445583984375, 2.1205517578125, 1.241935546875, -1.109470703125]
+        # home_pose = [ -0.0709716796875, 0.61836328125, -1.07183203125, 1.009328125, 2.046958984375, 0.97819140625, -0.4630205078125,]
         self.home_joints = dict(zip(self._joint_names, home_pose))
 
         # wait for first response to joint subscriber

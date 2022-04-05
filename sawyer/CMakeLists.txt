@@ -10,9 +10,9 @@ project(sawyer)
 find_package(catkin REQUIRED COMPONENTS
   actionlib
   geometry_msgs
-  intera_core_msgs
-  intera_interface
-  intera_motion_msgs
+  #intera_core_msgs
+  #intera_interface
+  #intera_motion_msgs
   message_generation
   message_runtime
   rospy
@@ -120,9 +120,9 @@ catkin_package(
   CATKIN_DEPENDS
   actionlib
   geometry_msgs
-  intera_core_msgs
-  intera_interface
-  intera_motion_msgs
+  #intera_core_msgs
+  #intera_interface
+  #intera_motion_msgs
   message_runtime
   rospy
   sensor_msgs
@@ -181,8 +181,9 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-  scripts/april_tags
+  scripts/april_tags_repeater
   scripts/ik_move_position
+  scripts/ik_move_torque
   scripts/ik_move_velocity
   scripts/test_traj
   scripts/waypoint_move

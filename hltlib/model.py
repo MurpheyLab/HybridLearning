@@ -3,6 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
 
+class _AF(nn.Module):
+    def __init__(self):
+        super(_AF, self).__init__()
+    def forward(self, x):
+        return torch.sin(x)
+
 class Model(nn.Module):
     """
     Class creates a model for the dynamics system
@@ -11,18 +17,29 @@ class Model(nn.Module):
     ### Words of matt; machine teaching
     """
     def __init__(self, num_states, num_actions,
-                 def_layers=[200, 200], std=0.):
+                 def_layers=[200, 200], std=3.e-3, AF=None):
 
         super(Model, self).__init__()
         self.num_states  = num_states
         self.num_actions = num_actions
-        layers = [num_states + num_actions] + def_layers + [num_states]
 
-        self.n_params = []
-        for i, (insize, outsize) in enumerate(zip(layers[:-1], layers[1:])):
-            var = 'layer' + str(i)
-            setattr(self, var, nn.Linear(insize, outsize))
-            self.n_params.append(i)
+
+        '''
+        Model representation of dynamics is single layer network with sin(x) nonlinearity.
+        For locomotion tasks, we use the rectifying linear unit (RELU) nonlinearity.
+        '''
+        if AF == 'sin':
+            self.mu = nn.Sequential(
+                nn.Linear(num_states+num_actions, def_layers[0]),_AF(),
+                nn.Linear(def_layers[0], def_layers[0]), _AF(),
+                nn.Linear(def_layers[0], num_states)
+            )
+        else:
+            self.mu = nn.Sequential(
+                nn.Linear(num_states+num_actions, def_layers[0]),nn.ReLU(),
+                nn.Linear(def_layers[0], def_layers[0]), nn.ReLU(),
+                nn.Linear(def_layers[0], num_states)
+            )
 
         self.reward_fun = nn.Sequential(
             nn.Linear(num_states+num_actions, def_layers[0]),
@@ -32,19 +49,7 @@ class Model(nn.Module):
             nn.Linear(def_layers[0], 1)
         )
 
-
-        # layers = [num_states + num_actions] + def_layers + [1]
-        # for i, (insize, outsize) in enumerate(zip(layers[:-1], layers[1:])):
-        #     var = 'rew_layer' + str(i)
-        #     setattr(self, var, nn.Linear(insize, outsize))
-
-        self.log_std = nn.Parameter(torch.randn(1, num_states) * 3e-3)
-
-        # self.log_std = nn.Sequential(
-        #     nn.Linear(def_layers[-1], def_layers[-1]),
-        #     nn.ReLU(),
-        #     nn.Linear(def_layers[-1], num_states)
-        # )
+        self.log_std = nn.Parameter(torch.randn(1, num_states) * std)
 
 
     def forward(self, s, a):
@@ -52,16 +57,9 @@ class Model(nn.Module):
         dx, rew = forward(s, a)
         dx is the change in the state
         """
-        x   = torch.cat([s, a], axis=1)
-        for i in self.n_params[:-1]:
-            w = getattr(self, 'layer' + str(i))
-            x = w(x)
-            # x = F.relu(x)
-            x = torch.sin(x)
-        # std = torch.clamp(self.log_std(x), -20., 2.).exp()
+        _in   = torch.cat([s, a], axis=1)
 
-        w = getattr(self, 'layer' + str(self.n_params[-1]))
-        x = w(x)
+        x = self.mu(_in)
 
         # in case I want to update the way the var looks like
         std = torch.clamp(self.log_std, -20., 2).exp().expand_as(x)

@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+"""
+This node gets tf transforms for april tags
+"""
+
+import time
+import random
+
+import rospy
+import tf
+import numpy as np
+
+# debugging
+# tf_echo <source_frame> <target_frame>
+
+class april_tag_repeater:
+    def __init__(self):
+        """
+        Initialise topics and some parameters used in the algorithm.
+        """
+        self.listener = tf.TransformListener(True,rospy.Duration(10))
+        self.br = tf.TransformBroadcaster()
+        self.tags = ['top','clutter1','clutter2','clutter3','clutter4','clutter5']
+        self.last_position = [np.zeros(3)]*len(self.tags)
+        self.last_orientation = [np.zeros(4)]*len(self.tags)
+        # for debugging
+        # self.count = 0
+
+    def get_transform(self):
+        # self.count+=1
+        # print(self.count)
+        now = rospy.Time.now()
+        for idx,name in enumerate(self.tags):
+            try:
+                # lookupTransform(target_frame, source_frame, time) -> (position, quaternion)
+                position, orientation = self.listener.lookupTransform("camera1",name,rospy.Time(0))
+                test = position[0] # check transform
+                self.last_position[idx] = position
+                self.last_orientation[idx] = orientation
+
+                now = rospy.Time.now()
+                # getLatestCommonTime(source_frame, target_frame) -> time
+                msg = self.listener.getLatestCommonTime(name,"camera1")
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                pass
+
+            if np.any(self.last_position[idx] != 0):
+                if (now-msg) > rospy.Duration(0.1):
+                    # print('sent transform',rospy.Time.now())
+
+                    # sendTransform(translation, rotation, time, child, parent)
+                    self.br.sendTransform(tuple(self.last_position[idx]),
+                                        tuple(self.last_orientation[idx]),
+                                        rospy.Time.now(),
+                                        name,"camera1")
+
+if __name__=="__main__":
+    try:
+        rospy.init_node("april_tag_repeater")
+        rate = rospy.Rate(10)
+        aprilTags = april_tag_repeater()
+        print('april tag repeater loaded')
+        while not rospy.is_shutdown():
+            state = aprilTags.get_transform()
+            rate.sleep()
+            # rospy.spin()
+    except rospy.ROSInterruptException:
+        pass

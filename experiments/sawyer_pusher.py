@@ -30,6 +30,12 @@ from sawyer_pykdl import sawyer_kinematics
 class sawyer_env(object):
     def __init__(self):
         '''
+        env params
+        '''
+        self.action_dim = 2
+        self.state_dim = 4
+
+        '''
         controller
         '''
         # set up ik solver
@@ -68,7 +74,9 @@ class sawyer_env(object):
                             home_orientation_quat.z, home_orientation_quat.w)
         self.home_orientation_rpy = np.asarray(transformations.euler_from_quaternion(home_orientation))
 
-        home_pose = [-0.2, -0.6, 0.0, 1.9, 0.0, 0.3, 1.571]; # straight, reacher
+        # home_pose = [-0.2, -0.6, 0.0, 1.9, 0.0, 0.3, 1.571] # straight, reacher
+        # home_pose = [-0.234923828125, -0.39573046875, -0.0039384765625, 1.7726640625, -0.0551083984375, 0.2502724609375, 1.5674697265625]
+        home_pose = [-0.2353359375, -0.4019111328125, 0.003216796875, 1.751396484375, -0.063126953125, 0.159546875, 1.5656103515625]
         self.home_joints = dict(zip(self._joint_names, home_pose))
 
         # wait for first response to joint subscriber
@@ -209,21 +217,25 @@ class sawyer_env(object):
         return correction
 
     def clip_velocities(self,action):
+        # max_x = 0.75
+        # min_x = 0.5 # 0.45
+        # max_y = 0.25 #0.3
+        # min_y = -0.2 #-0.25
         max_x = 0.75
-        min_x = 0.5 # 0.45
-        max_y = 0.25 #0.3
-        min_y = -0.2 #-0.25
-
+        min_x = 0.35
+        max_y = 0.3 #0.3
+        min_y = -0.3 #-0.25
+        slow = 0.5
         current_pose = deepcopy(self._tip_states)
 
         if (current_pose.pose.position.x > max_x):
-            action.dx = np.clip(action.dx, -1,0)
+            action.dx = np.clip(action.dx, -1*slow,0)
         elif (current_pose.pose.position.x < min_x):
-            action.dx = np.clip(action.dx, 0,1)
+            action.dx = np.clip(action.dx, 0,1*slow)
         if (current_pose.pose.position.y > max_y):
-            action.dy = np.clip(action.dy, -1,0)
+            action.dy = np.clip(action.dy, -1*slow,0)
         elif(current_pose.pose.position.y < min_y):
-            action.dy = np.clip(action.dy, 0,1)
+            action.dy = np.clip(action.dy, 0,1*slow)
 
         return action
 
@@ -299,34 +311,40 @@ class sawyer_env(object):
         ee_transform, _ = self.listener.lookupTransform( 'ee','top', rospy.Time(0))
         target_transform, _ = self.listener.lookupTransform( 'target','top', rospy.Time(0))
         try:
-            self.state = np.array([ee_transform[0],ee_transform[1],target_transform[0],target_transform[1]])*10
+            self.state = np.array([ee_transform[2],ee_transform[1],target_transform[0],target_transform[1]])*10
         except:
             print("Check that all april tags are visible")
 
         return self.state
 
 
-    def setup_transform_between_frames(self, reference_frame, target_frame):
-        time_out = 0.5
-        start_time = time.time()
-        while(True):
-            try:
-                translation, rot_quaternion = self.listener.lookupTransform(reference_frame, target_frame, rospy.Time(0))
-                break
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                if((time.time()- start_time) > time_out):
-                    return None
-        return translation
+    # def setup_transform_between_frames(self, reference_frame, target_frame):
+    #     time_out = 0.5
+    #     start_time = time.time()
+    #     while(True):
+    #         try:
+    #             translation, rot_quaternion = self.listener.lookupTransform(reference_frame, target_frame, rospy.Time(0))
+    #             break
+    #         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+    #             if((time.time()- start_time) > time_out):
+    #                 return None
+    #     return translation
 
     def get_transforms(self):
         lookups = ['top', 'block1','block2','block3','block4']
-        try:
-            ee_transform, _ = self.listener.lookupTransform( 'ee',lookups[0], rospy.Time(0))
-            target_transform, _ = self.listener.lookupTransform( 'target',lookups[0], rospy.Time(0))
-            self.state = np.array([ee_transform[0],ee_transform[1],target_transform[0],target_transform[1]])*10
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            print('no transform')
-            pass
+        for idx,block in enumerate(lookups):
+            try:
+                ee_transform, _ = self.listener.lookupTransform( 'ee',block, rospy.Time(0))
+                target_transform, _ = self.listener.lookupTransform( 'target',block, rospy.Time(0))
+                if idx == 0:
+                    self.state = np.array([ee_transform[2],ee_transform[1],target_transform[0],target_transform[1]])*10
+                else: # subtract 1/2 cube depth from x if looking at a tag on the side of the block
+                    self.state = np.array([ee_transform[2]-0.024,ee_transform[1],target_transform[0],target_transform[1]])*10
+                return block
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                # print('no transform')
+                pass
+        return None # no transforms
 
     def reward_function(self):
         [dx_ArmToBlock, dy_ArmToBlock, dx_BlockToTarget, dy_BlockToTarget] = self.state.copy()
@@ -357,14 +375,18 @@ class sawyer_env(object):
     def reset(self):
         self.reset_test = True
         self.update_velocities()
-        o = raw_input("Press enter to continue")
+        o = raw_input("Press enter to continue, press any letter then enter to quit\t")
+        if o == '':
+            pass
+        else:
+            return None
         self.setup_transforms()
         return self.state.copy()
 
     def step(self, _a):
         if (self.reset_test == False):
             # theta = (np.pi/4)*np.clip(_a[2],-1,1)  # keep april tags in view
-            action = 0.1*np.clip(_a, -1,1)
+            action = 0.15*np.clip(_a, -1,1)
             # publish action input
             pose = RelativeMove()
             pose.dx = action[0]

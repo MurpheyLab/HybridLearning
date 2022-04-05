@@ -1,1 +1,3 @@
+experiments/local/*
 *.pyc
+.ipynb_checkpoints/*

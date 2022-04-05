@@ -14,9 +14,9 @@
 
   <build_depend>actionlib</build_depend>
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>intera_core_msgs</build_depend>
+  <!-- <build_depend>intera_core_msgs</build_depend>
   <build_depend>intera_interface</build_depend>
-  <build_depend>intera_motion_msgs</build_depend>
+  <build_depend>intera_motion_msgs</build_depend> -->
   <build_depend>message_generation</build_depend>
   <build_depend>message_runtime</build_depend>
   <build_depend>rospy</build_depend>
@@ -26,23 +26,29 @@
 
   <build_export_depend>actionlib</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
-  <build_export_depend>intera_core_msgs</build_export_depend>
-  <build_export_depend>intera_interface</build_export_depend>
-  <build_export_depend>intera_motion_msgs</build_export_depend>
+  <!-- <build_export_depend>intera_core_msgs</build_export_depend> -->
+  <!-- <build_export_depend>intera_interface</build_export_depend> -->
+  <!-- <build_export_depend>intera_motion_msgs</build_export_depend> -->
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>sensor_msgs</build_export_depend>
   <build_export_depend>trajectory_msgs</build_export_depend>
 
   <exec_depend>actionlib</exec_depend>
+  <exec_depend>apriltag_ros</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>intera_core_msgs</exec_depend>
+  <!-- <exec_depend>intera_core_msgs</exec_depend>
   <exec_depend>intera_interface</exec_depend>
-  <exec_depend>intera_motion_msgs</exec_depend>
+  <exec_depend>intera_motion_msgs</exec_depend> -->
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>rospy</exec_depend>
+  <exec_depend>rqt_plot</exec_depend>
+  <exec_depend>rviz</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
   <exec_depend>trajectory_msgs</exec_depend>
+  <exec_depend>usb_cam</exec_depend>
+  <exec_depend>image_view</exec_depend>
 
   <export>
     <!-- Other tools can request additional information be placed here -->

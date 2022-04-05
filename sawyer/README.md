@@ -1,6 +1,11 @@
 ## General
+# setup (one time)
+copy sawyer/config/head_camera.yaml to ~/.ros/camera_info/.
+
 # source robot
 source ~/murphey_lab/sawyer_ws/src/SMPO/sawyer/robot.bash
+# source rethink workspace (or wherever you have sawyer tools installed)
+source ~/rethink_ws/devel/setup.bash
 # check connetion
 ping 10.42.0.2
 # check status/enable/disable robot

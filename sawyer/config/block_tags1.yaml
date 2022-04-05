@@ -19,14 +19,19 @@
 #   ]
 standalone_tags:
   [
-    {id: 3, size: 0.059, name: target}, # was 059 changed to 0.059 ?
-    {id: 10, size: 0.059, name: ee},
-    {id: 6, size: 0.059, name: block1},
-    {id: 7, size: 0.059, name: top},
-    {id: 8, size: 0.059, name: block2},
-    {id: 9, size: 0.059, name: block3},
-    {id: 11, size: 0.059, name: block4},
-    # {id: 1, size: 0.059}
+    {id: 3, size: 0.048, name: target}, # were all .059 changed to 0.048 ?
+    {id: 7, size: 0.033, name: top},
+    {id: 6, size: 0.033, name: block1},
+    {id: 8, size: 0.033, name: block2},
+    {id: 9, size: 0.033, name: block3},
+    {id: 10, size: 0.033, name: ee_temp},
+    {id: 11, size: 0.033, name: block4},
+    {id: 0, size: 0.033, name: clutter1},
+    {id: 1, size: 0.033, name: clutter2},
+    {id: 2, size: 0.033, name: clutter3},
+    {id: 4, size: 0.033, name: clutter4},
+    {id: 5, size: 0.033, name: clutter5},
+    # {id: 1, size: 0.048}
   ]
 # ## Tag bundle definitions
 # ### Remarks

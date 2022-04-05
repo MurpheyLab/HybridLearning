@@ -30,6 +30,12 @@ from sawyer_pykdl import sawyer_kinematics
 class sawyer_env(object):
     def __init__(self):
         '''
+        env params
+        '''
+        self.action_dim = 2
+        self.state_dim = 2
+
+        '''
         controller
         '''
         # set up ik solver
@@ -56,7 +62,7 @@ class sawyer_env(object):
         _tip_states_sub = rospy.Subscriber('/robot/limb/right/endpoint_state',EndpointState,self._on_tip_states,queue_size=1,tcp_nodelay=True)
 
         # set up controller
-        self.alpha = 0.2 # [0,1]
+        self.alpha = 0.5 # [0,1] # reacher is 0.8, first set of data was 0.2
         self.reset_joint_dict = dict()
         for name in self._joint_names:
             self.reset_joint_dict[name] = 0.0
@@ -68,7 +74,9 @@ class sawyer_env(object):
                             home_orientation_quat.z, home_orientation_quat.w)
         self.home_orientation_rpy = np.asarray(transformations.euler_from_quaternion(home_orientation))
 
-        home_pose = [-0.2, -0.6, 0.0, 1.9, 0.0, 0.3, 1.571]; # straight, reacher
+        # home_pose = [-0.2, -0.6, 0.0, 1.9, 0.0, 0.3, 1.571]; # straight, reacher
+        # home_pose = [-0.234923828125, -0.39573046875, -0.0039384765625, 1.7726640625, -0.0551083984375, 0.2502724609375, 1.5674697265625]
+        home_pose = [-0.2412080078125, -0.4063427734375, -0.002927734375, 1.752984375, -0.114912109375, 0.2556171875, 1.56373828125]
         self.home_joints = dict(zip(self._joint_names, home_pose))
 
         # wait for first response to joint subscriber
@@ -87,7 +95,7 @@ class sawyer_env(object):
         # set up ros
         self.move = rospy.Publisher('/test/relative_move',RelativeMove,queue_size=1)
         self.reward = rospy.Publisher('/test/reward',Reward,queue_size=1)
-        # self.listener = tf.TransformListener()
+        self.listener = tf.TransformListener()
         rospy.Service('/test/done', Trigger, self.doneCallback)
 
         # set up tf
@@ -96,7 +104,7 @@ class sawyer_env(object):
             time.sleep(0.2)
 
         self.state = np.zeros(2)
-        self.manual_transform()
+        self.setup_transforms()
         self.update_velocities()
         print('sawyer env setup complete')
 
@@ -209,21 +217,25 @@ class sawyer_env(object):
         return correction
 
     def clip_velocities(self,action):
+        # max_x = 0.75
+        # min_x = 0.5 # 0.45
+        # max_y = 0.25 #0.3
+        # min_y = -0.2 #-0.25
         max_x = 0.75
-        min_x = 0.5 # 0.45
-        max_y = 0.25 #0.3
-        min_y = -0.2 #-0.25
-
+        min_x = 0.35
+        max_y = 0.3 #0.3
+        min_y = -0.3 #-0.25
+        slow = 0.5
         current_pose = deepcopy(self._tip_states)
 
         if (current_pose.pose.position.x > max_x):
-            action.dx = np.clip(action.dx, -1,0)
+            action.dx = np.clip(action.dx, -1*slow,0)
         elif (current_pose.pose.position.x < min_x):
-            action.dx = np.clip(action.dx, 0,1)
+            action.dx = np.clip(action.dx, 0,1*slow)
         if (current_pose.pose.position.y > max_y):
-            action.dy = np.clip(action.dy, -1,0)
+            action.dy = np.clip(action.dy, -1*slow,0)
         elif(current_pose.pose.position.y < min_y):
-            action.dy = np.clip(action.dy, 0,1)
+            action.dy = np.clip(action.dy, 0,1*slow)
 
         return action
 
@@ -296,40 +308,77 @@ class sawyer_env(object):
     sawery_env
     '''
 
-    def manual_transform(self):
-        target = np.array([0.63227896205, -0.0151947757403]) # [x,y]
-        ee = np.array([self._tip_states.pose.position.x, self._tip_states.pose.position.y])
-        self.state = (ee-target)*10
+    def setup_transforms(self):
+        ee_transform, _ = self.listener.lookupTransform( 'ee','top', rospy.Time(0))
+        # target_transform, _ = self.listener.lookupTransform( 'target','top', rospy.Time(0))
+        try:
+            self.state = np.array([ee_transform[2],ee_transform[1]])*10
+            # self.state = np.array([ee_transform[0],ee_transform[1],target_transform[0],target_transform[1]])*10
+        except:
+            print("Check that all april tags are visible")
+
+        return self.state
+
+    def get_transforms(self):
+        lookups = ['top', 'block1','block2','block3','block4']
+        for idx,block in enumerate(lookups):
+            try:
+                ee_transform, _ = self.listener.lookupTransform( 'ee',block, rospy.Time(0))
+                # target_transform, _ = self.listener.lookupTransform( 'target',lookups[0], rospy.Time(0))
+                if idx == 0:
+                    self.state = np.array([ee_transform[2],ee_transform[1]])*10
+                else: # subtract 1/2 cube depth from x if looking at a tag on the side of the block
+                    self.state = np.array([ee_transform[2]-0.024,ee_transform[1]])*10
+                return block
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                # print('no transform')
+                pass
+        return None # no transforms
+
+    # def manual_transform(self):
+    #     target = np.array([0.63227896205, -0.0151947757403]) # [x,y]
+    #     ee = np.array([self._tip_states.pose.position.x, self._tip_states.pose.position.y])
+    #     self.state = (ee-target)*10
 
     def reward_function(self):
-        [dx_block_to_Arm, dy_block_to_Arm] = self.state.copy()
+        [dx_ArmToBlock, dy_ArmToBlock] = self.state.copy()
 
-        block_to_Arm = np.sqrt(dx_block_to_Arm**2+dy_block_to_Arm**2)
+        arm_to_block = np.sqrt(dx_ArmToBlock**2+dy_ArmToBlock**2)
 
         reward = 0
         done = False
-        thresh = 0.15
+        thresh = 0.45
 
-        reward += -block_to_Arm
+        reward += -arm_to_block
 
-        if (block_to_Arm < thresh):
+        if (arm_to_block < thresh):
             done = True
             # reward += 10
             print('Reached goal!')
+
+        next_reward = Reward()
+        next_reward.reward = reward
+        next_reward.distance1 = 0.
+        next_reward.distance2 = arm_to_block
+        self.reward.publish(next_reward)
 
         return reward, done
 
     def reset(self):
         self.reset_test = True
         self.update_velocities()
-        o = raw_input("Press enter to continue")
-        self.manual_transform()
+        o = raw_input("Press enter to continue, press any letter then enter to quit\t")
+        if o == '':
+            pass
+        else:
+            return None
+        self.setup_transforms()
         return self.state.copy()
 
     def step(self, _a):
         if (self.reset_test == False):
             # theta = (np.pi/4)*np.clip(_a[2],-1,1)  # keep april tags in view
-            action = 0.1*np.clip(_a, -1,1)
+            action = 0.15*np.clip(_a, -1,1)
             # publish action input
             pose = RelativeMove()
             pose.dx = action[0]
@@ -340,16 +389,16 @@ class sawyer_env(object):
             print('step function',self.raw_command)
 
             # get new state
-            self.manual_transform()
+            side = self.get_transforms()
             reward, done = self.reward_function()
             reward -= np.sum(_a**2)*0.01
         else:
             done = True
             reward, _ = self.reward_function()
 
-        next_reward = Reward()
-        next_reward.reward = reward
-        self.reward.publish(next_reward)
+        # next_reward = Reward()
+        # next_reward.reward = reward
+        # self.reward.publish(next_reward)
 
         self.update_velocities()
 
