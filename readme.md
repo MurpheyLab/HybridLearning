@@ -10,7 +10,7 @@ the `__init__()` function  for the `RoboschoolInvertedPendulumSwingup` task. The
 
 ## Copyright and License
 
-The implementations of Hybrid Learning contained herein are copyright (C) 2021 - 2022 by Allison Pinosky, and are distributed under the terms of the GNU General Public License (GPL) version 3 (or later). Please see the LICENSE for more information.
+The implementations of Hybrid Learning contained herein are copyright (C) 2021 - 2022 by Allison Pinosky and Todd Murphey, and are distributed under the terms of the GNU General Public License (GPL) version 3 (or later). Please see the LICENSE for more information.
 
 Contact: apinosky@u.northwestern.edu
 
